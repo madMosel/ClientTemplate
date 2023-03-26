@@ -96,7 +96,7 @@ public abstract class SessionTemplate {
      * Implement whatever Server shall do in on receive
      * here.
      */
-    public void send(Serializable data) {
+    public synchronized void send(Serializable data) {
         try {
             dataOut.writeObject(data);
         } catch (IOException e) {

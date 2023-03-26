@@ -7,9 +7,6 @@ import at.mad_mosel.Logger.Logger;
 import java.lang.reflect.Constructor;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.Timer;
-import java.util.TimerTask;
 
 public class Client {
     protected static Logger logger = new Logger();
@@ -44,6 +41,7 @@ public class Client {
             session.init(socket, this);
             sessions.add(session);
 
+            Thread.sleep(50);
             return session;
         } catch (Exception e) {
             logger.printException(e.getMessage());
@@ -64,25 +62,25 @@ public class Client {
         configParser.readFile();
 
         Configuration pd = configParser.getConfiguration("printDebug");
-        if (pd != null && pd.getValue().equals("true")) printDebug = true;
-        else if (pd != null && pd.getValue().equals("false")) printDebug = false;
+        if (pd != null && pd.getValue().equals("true")) logger.debug = true;
+        else if (pd != null && pd.getValue().equals("false")) logger.debug = false;
         else configParser.addConfiguration("printDebug", Boolean.toString(printDebug), "true", "false");
 
         Configuration pv = configParser.getConfiguration("printVerbose");
-        if (pd != null && pd.getValue().equals("true")) printVerbose = true;
-        else if (pd != null && pd.getValue().equals("false")) printVerbose = false;
+        if (pd != null && pd.getValue().equals("true")) logger.verbose = true;
+        else if (pd != null && pd.getValue().equals("false")) logger.verbose = false;
         else configParser.addConfiguration("printVerbose", Boolean.toString(printVerbose), "true", "false");
 
         Configuration pi = configParser.getConfiguration("printInfo");
-        if (pi != null && pi.getValue().equals("true")) printInfo = true;
-        else if (pi != null && pi.getValue().equals("false")) printInfo = false;
+        if (pi != null && pi.getValue().equals("true")) logger.info = true;
+        else if (pi != null && pi.getValue().equals("false")) logger.info = false;
         else {
             configParser.addConfiguration("printInfo", Boolean.toString(printInfo), "true", "false");
         }
 
         Configuration pe = configParser.getConfiguration("printException");
-        if (pe != null && pe.getValue().equals("true")) printException = true;
-        else if (pe != null && pe.getValue().equals("false")) printException = false;
+        if (pe != null && pe.getValue().equals("true")) logger.exception = true;
+        else if (pe != null && pe.getValue().equals("false")) logger.exception = false;
         else {
             configParser.addConfiguration("printException", Boolean.toString(printException), "true", "false");
         }
