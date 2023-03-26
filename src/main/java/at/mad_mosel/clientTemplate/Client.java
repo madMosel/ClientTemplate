@@ -2,10 +2,15 @@ package at.mad_mosel.clientTemplate;
 
 import at.mad_mosel.ConfigParser;
 import at.mad_mosel.Configuration;
+import at.mad_mosel.Logger.Logger;
 
-import javax.net.SocketFactory;
+import java.lang.reflect.Constructor;
+import java.net.Socket;
+import java.util.ArrayList;
 
 public class Client {
+    protected static Logger logger = new Logger();
+
     boolean printDebug = false;
     boolean printVerbose = false;
     boolean printException = true;
@@ -14,11 +19,37 @@ public class Client {
     String ip = "127.0.0.1";
     int port = 8001;
     boolean tls = false;
-    SocketFactory ssf = SocketFactory.getDefault();
+    String certPath;
 
+    public ArrayList<Session> sessions = new ArrayList<>();
 
-    private void parseConfigAndInsertMissing() {
-        ConfigParser configParser = new ConfigParser("server.conf");
+    public Client() {
+        parseAndInsertMissingConfig();
+    }
+
+    public Session startSession(Constructor sessionConstructor) {
+        try {
+            Session session = (Session) sessionConstructor.newInstance();
+            Socket socket = null;
+            if (tls) {
+                socket = TLS13SocketFactory.produceTslSocket(certPath, ip, port);
+            }
+            else {
+                socket = new Socket(ip, port);
+            }
+            session.init(socket);
+            sessions.add(session);
+
+            return session;
+        } catch (Exception e) {
+            logger.printException(e.getMessage());
+            if (printDebug) e.printStackTrace();
+            return null;
+        }
+    }
+
+    private void parseAndInsertMissingConfig() {
+        ConfigParser configParser = new ConfigParser("client.conf");
         configParser.readFile();
 
         Configuration pd = configParser.getConfiguration("printDebug");
@@ -45,6 +76,10 @@ public class Client {
             configParser.addConfiguration("printException", Boolean.toString(printException), "true", "false");
         }
 
+        Configuration ip = configParser.getConfiguration("ip");
+        if (ip != null) this.ip = ip.getValue();
+        else configParser.addConfiguration("ip", this.ip);
+
         Configuration port = configParser.getConfiguration("port");
         if (port != null) this.port = Integer.parseInt(port.getValue());
         else configParser.addConfiguration("port", Integer.toString(this.port), "\\d*");
@@ -58,10 +93,7 @@ public class Client {
             try {
                 Configuration certPath = configParser.getConfiguration("certPath");
                 if (certPath == null) throw new IllegalStateException("TSL but no cert specified! Check config file!");
-                Configuration passwd = configParser.getConfiguration("password");
-                if (passwd == null)
-                    throw new IllegalStateException("TSL but no password specified! Check config file!");
-                this.ssf = TLS13SocketFactory.getTLS13SocketFactory(certPath.getValue(), passwd.getValue());
+                this.certPath = certPath.getValue();
             } catch (IllegalStateException ise) {
                 if (!configParser.containsKeys("certPath")) configParser.addConfiguration("certPath");
                 if (!configParser.containsKeys("password"))configParser.addConfiguration("password");
