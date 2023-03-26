@@ -2,16 +2,20 @@ package at.mad_mosel.clientTemplate;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.Timer;
+import java.util.TimerTask;
 
-public abstract class Session {
+public abstract class SessionTemplate {
     private static final String msgPrefix = "Session: ";
 
-    boolean shutdownSwitch = false;
 
+    private Client client;
     Socket socket;
     Thread processor;
+    Thread receiver;
     ObjectOutputStream dataOut;
 
 
@@ -22,7 +26,7 @@ public abstract class Session {
         try {
             dataOut = new ObjectOutputStream(socket.getOutputStream());
             processData(null);
-            while (!shutdownSwitch) {
+            while (true) {
                 Serializable data;
                 synchronized (dataQueue) {
                     while (dataQueue.isEmpty()) dataQueue.wait();
@@ -30,21 +34,29 @@ public abstract class Session {
                 }
                 this.processData(data);
             }
+        } catch (InterruptedException ie) {
+
         } catch (Exception e) {
-            Client.logger.printException(e.getMessage());
-            if (Client.logger.debug) e.printStackTrace();
-            printInfo("Processor shutting down...");
+            onError(e);
         }
+        printInfo("Processor shutting down...");
     };
 
-    protected void init(Socket socket) throws IOException {
+    Runnable receiveData = () -> {
+        receive();
+    };
+
+    protected void init(Socket socket, Client server) throws IOException {
+        this.client = server;
+        this.socket = socket;
+        userInit();
         printInfo("Launching processor thread...");
         this.socket = socket;
         processor = new Thread(processesData);
         processor.start();
         printInfo("Processor up.");
-        userInit();
-        receive();
+        receiver = new Thread(receiveData);
+        receiver.start();
     }
 
     /**
@@ -63,18 +75,19 @@ public abstract class Session {
         printInfo("Listening for input...");
         try {
             ObjectInputStream dataIn = new ObjectInputStream(socket.getInputStream());
-            while (!shutdownSwitch) {
+            while (true) {
                 Serializable data = (Serializable) dataIn.readObject();
                 synchronized (dataQueue) {
                     dataQueue.add(data);
                     dataQueue.notify();
                 }
             }
+        } catch (SocketException | EOFException se) {
+            printVerbose("Receiver - socket closed");
         } catch (Exception e) {
-            Client.logger.printException(e.getMessage());
-            if (Client.logger.debug) e.printStackTrace();
-            printInfo("Receiver shutting down...");
+            onError(e);
         }
+        printInfo("Receiver shutting down...");
     }
 
 
@@ -87,8 +100,9 @@ public abstract class Session {
         try {
             dataOut.writeObject(data);
         } catch (IOException e) {
-            if (Client.logger.debug) Client.logger.printException(e.getMessage() + "while sending" + data);
             if (Client.logger.exception) e.printStackTrace();
+            printDebug("Failed on send. Trying kill()...");
+            kill();
         }
     }
 
@@ -97,8 +111,59 @@ public abstract class Session {
      */
     public abstract void processData(Serializable object) throws Exception;
 
+
     private void printInfo(String msg) {
         Client.logger.printInfo(msgPrefix + msg);
     }
 
+    private void printDebug(String msg) {
+        Client.logger.printDebug(msgPrefix + msg);
+    }
+
+    private void printVerbose(String msg) {
+        Client.logger.printVerbose(msgPrefix + msg);
+    }
+
+
+    private void onError(Exception e) {
+        if (Client.logger.debug) e.printStackTrace();
+        printDebug(e.getMessage());
+
+        try {
+            socket.close();
+            processor.interrupt();
+        } catch (Exception x) {
+            x.printStackTrace();
+            printDebug(x.getMessage());
+            printDebug("This should really not happen! Killing app for safety!");
+            printInfo("There was some issue with terminating the processor thread.");
+            System.exit(-1);
+        }
+        kill();
+        client.removeSession(this);
+    }
+
+    public void kill() {
+        try {
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    throw new IllegalStateException("Failed to cancel Session");
+                }
+            }, 3000);
+
+            if (!socket.isClosed()) {
+                socket.close();
+                printVerbose("Socket successfully closed");
+            }
+            processor.interrupt();
+            timer.cancel();
+            printInfo("Killed Session.");
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+        client.removeSession(this);
+    }
 }

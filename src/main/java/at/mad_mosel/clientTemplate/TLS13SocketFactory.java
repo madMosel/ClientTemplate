@@ -6,6 +6,7 @@ import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import javax.net.SocketFactory;
 import javax.net.ssl.*;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.net.InetSocketAddress;
 import java.security.*;
 import java.security.cert.CertificateFactory;
@@ -24,7 +25,11 @@ public class TLS13SocketFactory {
         X509Certificate serverCrt = (X509Certificate) certificateFactory.generateCertificate(
                 new FileInputStream(certPath));
 
+
+
         KeyStore clientKeyStore = KeyStore.getInstance("PKCS12");
+        clientKeyStore.load(null, null);
+//        clientKeyStore.store(null, null);
 
         //TrustManager is used to verify trusted Instances
         TrustManagerFactory clientTrustManagerFactory = TrustManagerFactory.getInstance("PKIX", "BCJSSE");
@@ -32,6 +37,7 @@ public class TLS13SocketFactory {
         clientTrustManagerFactory.init(clientKeyStore);
 
         KeyManagerFactory clientKeyManagerFactory = KeyManagerFactory.getInstance("PKIX", "BCJSSE");
+        clientKeyManagerFactory.init(clientKeyStore, null);
         TrustManager[] clientTrustManagers = clientTrustManagerFactory.getTrustManagers();
 
         KeyManager[] clientKeyManagers = clientKeyManagerFactory.getKeyManagers();
@@ -55,10 +61,9 @@ public class TLS13SocketFactory {
         clientSSLParameters.setProtocols(new String[]{"TLSv1.3"});
         SSLSocket clientSSLSocket = (SSLSocket) ssf.createSocket();
         clientSSLSocket.setSSLParameters(clientSSLParameters);
-        clientSSLSocket.setSSLParameters(clientSSLParameters);
+        clientSSLSocket.setTcpNoDelay(true);
         clientSSLSocket.connect(new InetSocketAddress(ip, port));
         clientSSLSocket.startHandshake();
-        clientSSLSocket.setTcpNoDelay(true);
         return clientSSLSocket;
     }
 }

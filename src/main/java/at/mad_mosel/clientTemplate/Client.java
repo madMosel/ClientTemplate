@@ -7,6 +7,9 @@ import at.mad_mosel.Logger.Logger;
 import java.lang.reflect.Constructor;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class Client {
     protected static Logger logger = new Logger();
@@ -21,23 +24,24 @@ public class Client {
     boolean tls = false;
     String certPath;
 
-    public ArrayList<Session> sessions = new ArrayList<>();
+    public ArrayList<SessionTemplate> sessions = new ArrayList<>();
 
     public Client() {
         parseAndInsertMissingConfig();
     }
 
-    public Session startSession(Constructor sessionConstructor) {
+    public SessionTemplate startSession(Constructor sessionConstructor) {
         try {
-            Session session = (Session) sessionConstructor.newInstance();
+            SessionTemplate session = (SessionTemplate) sessionConstructor.newInstance();
             Socket socket = null;
             if (tls) {
                 socket = TLS13SocketFactory.produceTslSocket(certPath, ip, port);
+                Thread.sleep(100);
             }
             else {
                 socket = new Socket(ip, port);
             }
-            session.init(socket);
+            session.init(socket, this);
             sessions.add(session);
 
             return session;
@@ -45,6 +49,13 @@ public class Client {
             logger.printException(e.getMessage());
             if (printDebug) e.printStackTrace();
             return null;
+        }
+    }
+
+
+    protected void removeSession(SessionTemplate session) {
+        synchronized (this.sessions) {
+            sessions.remove(session);
         }
     }
 
@@ -96,7 +107,6 @@ public class Client {
                 this.certPath = certPath.getValue();
             } catch (IllegalStateException ise) {
                 if (!configParser.containsKeys("certPath")) configParser.addConfiguration("certPath");
-                if (!configParser.containsKeys("password"))configParser.addConfiguration("password");
                 configParser.saveConfigs();
                 ise.printStackTrace();
                 System.exit(-1);
@@ -106,7 +116,6 @@ public class Client {
             }
         }
         if (!configParser.containsKeys("certPath")) configParser.addConfiguration("certPath");
-        if (!configParser.containsKeys("password"))configParser.addConfiguration("password");
         configParser.saveConfigs();
     }
 }
