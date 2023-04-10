@@ -77,6 +77,7 @@ public abstract class SessionTemplate {
             ObjectInputStream dataIn = new ObjectInputStream(socket.getInputStream());
             while (true) {
                 Serializable data = (Serializable) dataIn.readObject();
+                printVerbose("received " + data.getClass());
                 synchronized (dataQueue) {
                     dataQueue.add(data);
                     dataQueue.notify();

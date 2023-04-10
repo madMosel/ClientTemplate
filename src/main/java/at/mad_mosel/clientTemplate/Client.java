@@ -25,6 +25,10 @@ public class Client {
 
     public Client() {
         parseAndInsertMissingConfig();
+        logger.debug = printDebug;
+        logger.verbose = printVerbose;
+        logger.info = printInfo;
+        logger.exception = printException;
     }
 
     public SessionTemplate startSession(Constructor sessionConstructor) {
