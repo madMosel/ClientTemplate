@@ -99,6 +99,7 @@ public abstract class SessionTemplate {
      */
     public synchronized void send(Serializable data) {
         try {
+            Client.logger.printVerbose("Sending " + data.getClass());
             dataOut.writeObject(data);
         } catch (IOException e) {
             if (Client.logger.exception) e.printStackTrace();
