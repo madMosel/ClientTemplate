@@ -29,6 +29,7 @@ public class Client {
         logger.verbose = printVerbose;
         logger.info = printInfo;
         logger.exception = printException;
+        logger.infoPrefix = "ClientTemplate";
     }
 
     public SessionTemplate startSession(Constructor sessionConstructor) {
